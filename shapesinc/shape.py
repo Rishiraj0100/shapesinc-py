@@ -64,7 +64,8 @@ class ShapeBase:
     self,
     message: Message,
     user: User = None,
-    channel: Channel = None
+    channel: Channel = None,
+    remove_uid: bool = False
   ) -> typing.Union[PromptResponse, typing.Awaitable[PromptResponse]]:
     headers = {
       "Authorization": f"Bearer {self.api_key}",
@@ -76,6 +77,8 @@ class ShapeBase:
       headers["X-User-Id"] = user.id
       if user.auth_token and self.app_id is not MISSING:
         headers["X-User-Auth"] = user.auth_token
+        if remove_uid:
+          del headers["X-User-Id"]
         del headers["Authorization"]
         
     if channel is not None:
