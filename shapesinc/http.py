@@ -67,7 +67,7 @@ class _RouteBase(str):
 
 class _Route(_RouteBase):
   """Used for synchronous purpose.
-  It is a subclass of :class:`shapesinc._RouteBase`"""
+  It is a subclass of :class:`shapesinc.http._RouteBase`"""
   def request(
     self,
     method: str = "POST",
@@ -132,7 +132,7 @@ class _Route(_RouteBase):
 
 class _AsyncRoute(_RouteBase):
   """Used for asynchronous purpose.
-  It is a subclass of :class:`shapesinc._RouteBase`"""
+  It is a subclass of :class:`shapesinc.http._RouteBase`"""
   async def request(
     self,
     method: str = "POST",
