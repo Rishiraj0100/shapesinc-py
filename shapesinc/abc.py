@@ -423,6 +423,17 @@ class PromptResponse(TypedDict):
   _parse_usage = lambda _, u: PromptResponse_Usage(**u)
 
 class ToolChoice(str, Enum):
+  """Enumeration class for tool choice for specific prompts.
+
+  Attributes
+  -----------
+  auto:
+    {shape} will automatically detect when to use tools.
+  none:
+    {shape} will not use any tools.
+  required:
+    {shape} must use tools.
+  """
   auto = "auto"
   none = "none"
   required = "required"
@@ -438,6 +449,13 @@ Types = typing.Literal[
   "anyOf",
 ]
 class Parameter(TypedDict):
+  """Base class for parameters in tool function.
+  
+  Parameters
+  -----------
+  description: Optional[:class:`~str`]
+    Description of the parameter. This field is optional.
+  """
   type: typing.Union[
     Types,
     typing.List[
@@ -447,9 +465,9 @@ class Parameter(TypedDict):
       ]
     ]
   ]
-  description: str
   
   def to_dict(self) -> dict:
+    """Converts itself into JSON format"""
     d = {}
     for k, v in self.items():
       if isinstance(v, Parameter):
@@ -471,8 +489,6 @@ class DictParameter(Parameter):
   additionalProperties: dict = False
   required: typing.List[str]
   
- # def to_dict(self):
-  #  d = super().
 
 class StrParameter(Parameter):
   type = "string"
