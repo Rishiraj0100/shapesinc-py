@@ -12,6 +12,7 @@ from .abc import (
   BooleanParameter,
   ListParameter,
   DictParameter,
+  AnyOfParameter,
   ToolChoice,
   Tool
 )
