@@ -66,7 +66,7 @@ class ShapeBase:
   def prompt(
     self,
     message: Message,
-    messages: typing.List[Message] = [],
+    messages: typing.List[Message] = MISSING,
     tools: typing.List[Tool] = [],
     tool_choice: ToolChoice = ToolChoice.auto,
     user: User = None,
@@ -90,6 +90,7 @@ class ShapeBase:
     if channel is not None:
       headers["X-Channel-Id"] = channel.id
       
+    messages = [] if messages is MISSING else messages
     if isinstance(message, str):
       message=Message.new(message)
     if messages:
