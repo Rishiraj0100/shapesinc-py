@@ -496,7 +496,7 @@ class DictParameter(Parameter):
     Properties of dictionary.
   additionalProperties: Optional[:class:`~bool`]
     This is optional. Default value is False. (recommended value: False)
-  required: :class:`~list`[:class:`~str`]
+  required: List[:class:`~str`]
     List of properties which are required.
   """
   _default = {
@@ -521,7 +521,7 @@ class StrParameter(Parameter):
     Format of the parameter. Must be one of
     date-time time date duration email hostname ipv4 ipv6 uuid.
     This option is not supported for fine-tuned AI engines.
-  enum: Optional[:class:`~list`[:class:`~str`]]
+  enum: Optional[List[:class:`~str`]]
     List of options through which an option should be picked.
   """
   type = "string"
@@ -622,7 +622,7 @@ class AnyOfParameter(Parameter):
 
   Parameters
   -----------
-  anyOf: :class:`~list`[:class:`shapesinc.DictParameter`]
+  anyOf: List[:class:`shapesinc.DictParameter`]
     List of parameters. This option is required.
   """
   anyOf: typing.List[DictParameter]
