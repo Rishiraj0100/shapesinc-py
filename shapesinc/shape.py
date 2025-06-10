@@ -174,8 +174,8 @@ class Shape(ShapeBase):
       
     Raises
     -------
-    :class:`~RuntimeError`
-      Raised when asynchronous function for tool is passed to synchronous shape.
+    RuntimeError
+      Raised when a tool with asynchronous function as callback is passed to synchronous shape.
     :class:`shapesinc.RateLimitError`
       Error when we get ratelimited
     :class:`shapesinc.APIError`
