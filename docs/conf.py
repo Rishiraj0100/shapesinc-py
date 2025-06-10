@@ -12,6 +12,8 @@ version = __version__
 # The full version, including alpha/beta/rc tags
 release = version
 
+language = 'en'
+
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.append(os.path.abspath('extensions'))
 
