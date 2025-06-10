@@ -93,7 +93,8 @@ class ShapeBase:
     if isinstance(message, str):
       message=Message.new(message)
       
-    messages.append(message.to_dict())
+    if message:
+      messages.append(message.to_dict())
     kw = {}
     if tools:
       kw["tools"]=tools
