@@ -1,3 +1,4 @@
+import inspect
 import typing
 
 from .abc import (
@@ -6,7 +7,9 @@ from .abc import (
   Message,
   PromptResponse,
   MISSING,
-  TypedDict
+  TypedDict,
+  Tool,
+  ToolChoice
 )
 from .http import (
   Route,
@@ -63,6 +66,9 @@ class ShapeBase:
   def prompt(
     self,
     message: Message,
+    messages: typing.List[Message] = [],
+    tools: typing.List[Tool] = [],
+    tool_choice: ToolChoice = ToolChoice.auto,
     user: User = None,
     channel: Channel = None,
     remove_uid: bool = False
@@ -87,12 +93,20 @@ class ShapeBase:
     if isinstance(message, str):
       message=Message.new(message)
       
-    return self.make_send_message_request([message.to_dict()], headers)
+    messages.append(message.to_dict())
+    kw = {}
+    if tools:
+      kw["tools"]=tools
+      kw["tool_choice"]=tool_choice
+
+    return self.make_send_message_request(messages, headers, **kw)
 
   def make_send_message_request(
     self,
     messages: typing.List[typing.Dict[str, str]],
-    headers: typing.Dict[str, str]
+    headers: typing.Dict[str, str],
+    tools: typing.List[Tool] = [],
+    tool_choice: str = "auto",
   ) -> PromptResponse:
     """The method which is implemented to make requests to API
 
@@ -161,16 +175,44 @@ class Shape(ShapeBase):
   def make_send_message_request(
     self,
     messages: typing.List[typing.Dict[str, str]],
-    headers: typing.Dict[str, str]
+    headers: typing.Dict[str, str],
+    tools: typing.List[Tool] = [],
+    tool_choice: str = "auto",
   ) -> PromptResponse:
-    return PromptResponse(shape=self, **(Route.API_BASE/"chat/completions").request(
+    kw = {}
+    if tools:
+      kw["tools"] = [t.to_dict() for t in tools]
+      kw["tool_choice"] = tool_choice
+    resp = PromptResponse(shape=self, **(Route.API_BASE/"chat/completions").request(
       "POST",
       headers,
       {
         "model": self.model_name,
-        "messages": messages
+        "messages": messages,
+        **kw
       }
     ))
+    if resp.choices[0].message.tool_calls:
+      tool_map = {t.function.name: t for t in tools}
+      msg=resp.choices[0].message
+      messages.append(msg.to_dict())
+      for tc in msg.tool_calls:
+        op=tool_map[
+          tc["function"]["name"]
+        ].call(
+          tc["id"],
+          tc["function"]["arguments"]
+        )
+        if inspect.isawaitable(op):
+          raise RuntimeError("asynchronous function tool passed in synchronous shape!")
+        messages.append(op)
+      return self.make_send_message_request(
+        messages=messages,
+        headers=headers,
+        tools=tools,
+        tool_choice="auto"
+      )
+    else: return resp
     
   def info(self) -> dict:
     """Tells information about shape.
@@ -242,17 +284,47 @@ class AsyncShape(ShapeBase):
   async def make_send_message_request(
     self,
     messages: typing.List[typing.Dict[str, str]],
-    headers: typing.Dict[str, str]
+    headers: typing.Dict[str, str],
+    tools: typing.List[Tool] = [],
+    tool_choice: str = "auto",
   ) -> PromptResponse:
+    kw = {}
+    if tools:
+      kw["tools"] = [t.to_dict() for t in tools]
+      kw["tool_choice"] = tool_choice
+    
     req = await (AsyncRoute.API_BASE/"chat/completions").request(
       "POST",
       headers,
       {
         "model": self.model_name,
-        "messages": messages
+        "messages": messages,
+        **kw
       }
     )
-    return PromptResponse(shape=self, **req)
+    resp = PromptResponse(shape=self, **req)
+
+    if resp.choices[0].message.tool_calls:
+      tool_map = {t.function.name: t for t in tools}
+      msg=resp.choices[0].message
+      messages.append(msg.to_dict())
+      for tc in msg.tool_calls:
+        op=tool_map[
+          tc["function"]["name"]
+        ].call(
+          tc["id"],
+          tc["function"]["arguments"]
+        )
+        if inspect.isawaitable(op):
+          op = await op
+        messages.append(op)
+      return await self.make_send_message_request(
+        messages=messages,
+        headers=headers,
+        tools=tools,
+        tool_choice="auto"
+      )
+    else: return resp
     
   async def info(self) -> dict:
     """Tells information about shape.
