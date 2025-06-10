@@ -252,6 +252,8 @@ class Message:
     Contents of the message.
   role: :class:`~str`
     Role of the author. Default: "user"
+  tool_calls: :class:`~list`
+    List of tool calls given by shape (if any).
   """
   def __init__(
     self,
@@ -455,6 +457,9 @@ class Parameter(TypedDict):
   -----------
   description: Optional[:class:`~str`]
     Description of the parameter. This field is optional.
+  type: Optional[:class:`~str`]
+    Type of parameter. automatically detected if not given.
+    It can be string or list of string.
   """
   type: typing.Union[
     Types,
@@ -465,9 +470,10 @@ class Parameter(TypedDict):
       ]
     ]
   ]
+  description: str
   
   def to_dict(self) -> dict:
-    """Converts itself into JSON format"""
+    """Converts itself into JSON format."""
     d = {}
     for k, v in self.items():
       if isinstance(v, Parameter):
@@ -481,6 +487,18 @@ class Parameter(TypedDict):
   def __get__(self): return self.to_dict()
 
 class DictParameter(Parameter):
+  """Dictionary parameter for tool function.
+  It is a subclass of :class:`shapesinc.Parameter`
+
+  Parameters
+  -----------
+  properties: Dict[:class:`~str`, :class:`shapesinc.Parameter`]
+    Properties of dictionary.
+  additionalProperties: Optional[:class:`~bool`]
+    This is optional. Default value is False. (recommended value: False)
+  required: :class:`~list`[:class:`~str`]
+    List of properties which are required.
+  """
   _default = {
     "additionalProperties": False
   }
@@ -491,6 +509,21 @@ class DictParameter(Parameter):
   
 
 class StrParameter(Parameter):
+  """String parameter for tool function.
+  It is a subclass of :class:`shapesinc.Parameter`
+
+  Parameters
+  -----------
+  pattern: Optional[:class:`~str`]
+    RegExp pattern to match.
+    This option is not supported for fine-tuned AI engines.
+  format: Optional[:class:`~str`]
+    Format of the parameter. Must be one of
+    date-time time date duration email hostname ipv4 ipv6 uuid.
+    This option is not supported for fine-tuned AI engines.
+  enum: Optional[:class:`~list`[:class:`~str`]]
+    List of options through which an option should be picked.
+  """
   type = "string"
   pattern: str # FT
   format: typing.Literal[
@@ -507,33 +540,92 @@ class StrParameter(Parameter):
   enum: typing.List[str]
   
 class NumberParameter(Parameter):
-  type = "number"
+  """Number (floating-point) parameter for tool function.
+  It is a subclass of :class:`shapesinc.Parameter`
+
+  Parameters
+  -----------
+  multipleOf: :class:`~float`
+    Value would be multiple of...
+    This option is not supported for fine-tuned AI engines.
+  maximum: :class:`~float`
+    Value would be less than or equal to it.
+    This option is not supported for fine-tuned AI engines.
+  minimum: :class:`~float`
+    Value would be more than or equal to it.
+    This option is not supported for fine-tuned AI engines.
+  exclusiveMinimum: :class:`~float`
+    Value would be greater than it.
+  exclusiveMaximum: :class:`~float`
+    Value would be less than it.
+  """
   multipleOf: typing.Union[float, int] # FT
   maximum: typing.Union[float, int] # FT
   exclusiveMaximum: typing.Union[float, int]
   minimum: typing.Union[float, int] # FT
   exclusiveMinimum: typing.Union[float, int]
-  enum: typing.List[typing.Union[float, int]]
 
-class IntParameter(Parameter):
+class IntParameter(NumberParameter):
+  """Integer parameter for tool function.
+  It is a subclass of :class:`shapesinc.NumberParameter`
+
+  Parameters
+  -----------
+  multipleOf: :class:`~int`
+    Value would be multiple of...
+    This option is not supported for fine-tuned AI engines.
+  maximum: :class:`~int`
+    Value would be less than or equal to it.
+    This option is not supported for fine-tuned AI engines.
+  minimum: :class:`~int`
+    Value would be more than or equal to it.
+    This option is not supported for fine-tuned AI engines.
+  exclusiveMinimum: :class:`~int`
+    Value would be greater than it.
+  exclusiveMaximum: :class:`~int`
+    Value would be less than it.
+  """
   type = "integer"
   multipleOf: int # FT
   maximum: int # FT
   exclusiveMaximum: int
   minimum: int # FT
   exclusiveMinimum: int
-  enum: typing.List[int]
 
 class ListParameter(Parameter):
+  """List (array) parameter for tool function.
+  It is a subclass of :class:`shapesinc.Parameter`
+
+  Parameters
+  -----------
+  minItems: :class:`~int`
+    Value would contain atleast this amount of items.
+    This option is not supported for fine-tuned AI engines.
+  maxItems: :class:`~int`
+    Value would contain atmost this amount of items.
+    This option is not supported for fine-tuned AI engines.
+  """
   type = "array"
   minItems: int # FT
   maxItems: int # FT
 
 class BooleanParameter(Parameter):
+  """Boolean (:class:`~bool`) parameter for tool function.
+  It is a subclass of :class:`shapesinc.Parameter`
+  """
   type = "boolean"
 
 class AnyOfParameter(Parameter):
-  anyOf: typing.List[Parameter]
+  """AnyOf parameter for tool function.
+  It specifies various parameter option for {shape}.
+  It is a subclass of :class:`shapesinc.Parameter`
+
+  Parameters
+  -----------
+  anyOf: :class:`~list`[:class:`shapesinc.DictParameter`]
+    List of parameters. This option is required.
+  """
+  anyOf: typing.List[DictParameter]
   _required=["anyOf"]
   
   def to_dict(self):
@@ -548,6 +640,19 @@ class AnyOfParameter(Parameter):
     return res
 
 class Function(TypedDict):
+  """Function data class for tool calls.
+
+  Parameters
+  -----------
+  name: :class:`~str`
+    Name of the function. This option is required.
+  description: :class:`~str`
+    Description of the function. This option is required.
+  parameters: :class:`shapesinc.DictParameter`
+    Parameters of the function. This option is required.
+  strict: Optional[:class:`~bool`]
+    Whether to use strict mode. Default: True, recommended value: True
+  """
   _required = ["name", "description", "parameters"]
   name: str
   description: str
@@ -555,6 +660,7 @@ class Function(TypedDict):
   strict: bool = True
   
   def to_dict(self):
+    """Converts itself to JSON format"""
     return dict(
       name=self.name,
       description=self.description,
@@ -564,20 +670,73 @@ class Function(TypedDict):
     
 
 class Tool:
+  """Tool class.
+
+  Parameters
+  -----------
+  function: :class:`shapesinc.Function`
+    Function data.
+  callback:
+    Python function which will be called upon tool call.
+  """
   def __init__(
     self,
     function: Function,
-    callback
+    callback: typing.Callable
   ):
     self.type = "function"
     self.function = function
     self.callback = callback
     
   def to_dict(self):
+    """Converts itself to JSON format"""
     return dict(type=self.type, function=self.function.to_dict())
     
   @classmethod
   def from_function(cls, func) -> "Tool":
+    """Creates tool from python function.
+
+    Parameters
+    -----------
+    func
+      Python function.
+
+    Example
+    --------
+
+    .. code-block:: python3
+
+        from shapesinc import Tool
+
+        # Synchronous Example
+        def add(a: float, b: float):
+            '''Adds two numbers'''
+            return a + b
+
+        tool1 = Tool.from_function(add)
+        my_shape.prompt(
+            "can you add 2 and 4 for me using tools please?",
+            tools=[tool1],
+            user=user,
+            channel=channel
+        )
+        
+        # Asynchronous Example
+        async def multiply(a: float, b: float):
+            '''Multiplies two numbers'''
+            return a * b
+
+        tool2 = Tool.from_function(multiply)
+        
+        # NOTE: Tools with Asynchronous functions must not go with Synchronous Shapes.
+        await my_shape.prompt(
+            "can you multiply 2 and 4 for me using tools please?",
+            tools=[tool2],
+            user=user,
+            channel=channel
+        )
+        
+    """
     valid_types_map = {
       float: NumberParameter,
       str: StrParameter,
@@ -609,6 +768,7 @@ class Tool:
     id: str,
     arguments: str
   ) -> dict:
+    """Calls the tool function."""
     args = json.loads(arguments)
     if not inspect.iscoroutinefunction(self.callback):
       res = self.callback(**args)
