@@ -735,7 +735,12 @@ class Tool:
             user=user,
             channel=channel
         )
-        
+
+    Raises
+    -------
+    TypeError
+      When typehint of the callback function arguments don't match
+      allowed types (:class:`~int`, :class:`~float`, :class:`~str`, :class:`~bool`)
     """
     valid_types_map = {
       float: NumberParameter,
