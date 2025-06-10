@@ -70,6 +70,7 @@ Tools
 ~~~~~~
 
 .. autoclass:: shapesinc.Parameter
+    :members:
 
 .. autoclass:: shapesinc.StrParameter
 
@@ -85,7 +86,11 @@ Tools
 
 .. autoclass:: shapesinc.AnyOfParameter
 
+.. autoclass:: shapesinc.Function
+    :members:
+
 .. autoclass:: shapesinc.Tool
+    :members:
 
 .. autoclass:: shapesinc.ToolChoice
 
