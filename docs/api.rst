@@ -66,6 +66,29 @@ Message
 
 .. autoclass:: shapesinc.abc.PromptResponse_Choice
 
+Tools
+~~~~~~
+
+.. autoclass:: shapesinc.Parameter
+
+.. autoclass:: shapesinc.StrParameter
+
+.. autoclass:: shapesinc.IntParameter
+
+.. autoclass:: shapesinc.NumberParameter
+
+.. autoclass:: shapesinc.BooleanParameter
+
+.. autoclass:: shapesinc.ListParameter
+
+.. autoclass:: shapesinc.DictParameter
+
+.. autoclass:: shapesinc.AnyOfParameter
+
+.. autoclass:: shapesinc.Tool
+
+.. autoclass:: shapesinc.ToolChoice
+
 HTTP
 -----
 
