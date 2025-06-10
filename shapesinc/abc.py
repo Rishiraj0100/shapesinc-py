@@ -1,8 +1,10 @@
+import inspect
+import json
 import random
 import typing
 
 from datetime import datetime
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 from .http import (
   Route,
@@ -251,10 +253,17 @@ class Message:
   role: :class:`~str`
     Role of the author. Default: "user"
   """
-  def __init__(self, content: typing.List[MessageContent] = None, role: str = "user"):
+  def __init__(
+    self,
+    content: typing.List[MessageContent] = None,
+    role: str = "user",
+    *,
+    tool_calls: typing.List[dict] = []
+  ):
     assert content, ValueError("Cannot create empty message!")
     self.content = content
     self.role = role
+    self.tool_calls = tool_calls or []
     
   def __repr__(self) -> str:
     if len(self.content)==1 and self.content[0].type==ContentType.text:
@@ -270,17 +279,34 @@ class Message:
       cont = self.content[0].content
     else:
       cont = [c.to_dict() for c in self.content]
-    return {
+    res = {
       "role": self.role,
       "content": cont
     }
+    if self.tool_calls:
+      res["tool_calls"] = []
+      if not cont:
+        del res["content"]
+        
+      for tc in self.tool_calls:
+        res["tool_calls"].append(dict(
+          id=tc["id"],
+          type=tc["type"],
+          function=dict(
+            name = tc["function"]["name"],
+            arguments = tc["function"]["arguments"]
+          )
+        ))
+        
+    return res
     
   @classmethod
   def from_dict(cls, data: dict):
     """JSON to :class:`shapesinc.Message`"""
     return cls(
       [MessageContent.from_dict(c) for c in data["content"]] if isinstance(data["content"], list) else [MessageContent(data["content"])],
-      data["role"]
+      data["role"],
+      tool_calls=data.get("tool_calls", [])
     )
     
   @classmethod
@@ -313,6 +339,8 @@ class Message:
 # Okay, Okay. I know. my naming sense is not too good.
 
 def _p(v):
+  if isinstance(v, TypedDict):
+    return v
   if isinstance(v, dict):
     return TypedDict(**v)
   if isinstance(v, list):
@@ -325,7 +353,17 @@ def _p(v):
   return v
 
 class TypedDict(dict):
+  _default = {}
+  _required = []
+  
   def __init__(self, **kwargs):
+    for i in self._required:
+      if i not in kwargs.keys():
+        raise ValueError(f"'{i}' is a required argument!")
+        
+    for k, v in self._default.items():
+      if k not in kwargs:
+        kwargs[k] = v
     for k, v in kwargs.items():
       v = getattr(self, "_parse_"+k,_p)(v)
       setattr(self, k, v)
@@ -384,3 +422,192 @@ class PromptResponse(TypedDict):
   _parse_choices = lambda _, cs: [PromptResponse_Choice(**c) for c in cs]
   _parse_usage = lambda _, u: PromptResponse_Usage(**u)
 
+class ToolChoice(str, Enum):
+  auto = "auto"
+  none = "none"
+  required = "required"
+
+Types = typing.Literal[
+  "string",
+  "number",
+  "boolean",
+  "integer",
+  "object",
+  "array",
+  "enum",
+  "anyOf",
+]
+class Parameter(TypedDict):
+  type: typing.Union[
+    Types,
+    typing.List[
+      typing.Union[
+        Types,
+        typing.Literal["null"]
+      ]
+    ]
+  ]
+  description: str
+  
+  def to_dict(self) -> dict:
+    d = {}
+    for k, v in self.items():
+      if isinstance(v, Parameter):
+        v=v.to_dict()
+      d[k]=v
+    if getattr(self, "type", None):
+      d["type"] = self.type
+      
+    return d
+    
+  def __get__(self): return self.to_dict()
+
+class DictParameter(Parameter):
+  _default = {
+    "additionalProperties": False
+  }
+  type = "object"
+  properties: typing.Dict[str, Parameter]
+  additionalProperties: dict = False
+  required: typing.List[str]
+  
+ # def to_dict(self):
+  #  d = super().
+
+class StrParameter(Parameter):
+  type = "string"
+  pattern: str # FT
+  format: typing.Literal[
+    "date-time",
+    "time",
+    "date",
+    "duration",
+    "email",
+    "hostname",
+    "ipv4",
+    "ipv6",
+    "uuid"
+  ] # FT
+  enum: typing.List[str]
+  
+class NumberParameter(Parameter):
+  type = "number"
+  multipleOf: typing.Union[float, int] # FT
+  maximum: typing.Union[float, int] # FT
+  exclusiveMaximum: typing.Union[float, int]
+  minimum: typing.Union[float, int] # FT
+  exclusiveMinimum: typing.Union[float, int]
+  enum: typing.List[typing.Union[float, int]]
+
+class IntParameter(Parameter):
+  type = "integer"
+  multipleOf: int # FT
+  maximum: int # FT
+  exclusiveMaximum: int
+  minimum: int # FT
+  exclusiveMinimum: int
+  enum: typing.List[int]
+
+class ListParameter(Parameter):
+  type = "array"
+  minItems: int # FT
+  maxItems: int # FT
+
+class BooleanParameter(Parameter):
+  type = "boolean"
+
+class AnyOfParameter(Parameter):
+  anyOf: typing.List[Parameter]
+  _required=["anyOf"]
+  
+  def to_dict(self):
+    d=super().to_dict()
+    res={**d}
+    res["anyOf"]=[]
+    for v in d["anyOf"]:
+      if isinstance(v, Parameter):
+        v=v.to_dict()
+      res["anyOf"].append(v)
+      
+    return res
+
+class Function(TypedDict):
+  _required = ["name", "description", "parameters"]
+  name: str
+  description: str
+  parameters: DictParameter
+  strict: bool = True
+  
+  def to_dict(self):
+    return dict(
+      name=self.name,
+      description=self.description,
+      strict=self.strict,
+      parameters=self.parameters.to_dict()
+    )
+    
+
+class Tool:
+  def __init__(
+    self,
+    function: Function,
+    callback
+  ):
+    self.type = "function"
+    self.function = function
+    self.callback = callback
+    
+  def to_dict(self):
+    return dict(type=self.type, function=self.function.to_dict())
+    
+  @classmethod
+  def from_function(cls, func) -> "Tool":
+    valid_types_map = {
+      float: NumberParameter,
+      str: StrParameter,
+      int: IntParameter,
+      bool: BooleanParameter 
+    }
+    valid_types = tuple(valid_types_map.keys())
+    spec = inspect.getfullargspec(func)
+    ann = spec.annotations
+    params = {}
+    for k, v in ann.items():
+      assert v in valid_types, TypeError(f"Parameter types of the function must be one of {valid_types}, not {v}")
+      params[k]=valid_types_map[v]()
+      
+    return cls(
+      Function(
+        name=func.__name__,
+        description=func.__doc__ or '',
+        parameters=DictParameter(
+          required=list(params.keys()),
+          **params
+        )
+      ),
+      callback=func
+    )
+
+  def call(
+    self,
+    id: str,
+    arguments: str
+  ) -> dict:
+    args = json.loads(arguments)
+    if not inspect.iscoroutinefunction(self.callback):
+      res = self.callback(**args)
+      return dict(
+        role='tool',
+        content=str(res),
+        tool_call_id = id
+      )
+      
+    async def wrap():
+      res = await self.callback(**args)
+      return dict(
+        role='tool',
+        content=str(res),
+        tool_call_id = id
+      )
+      
+    return wrap()
