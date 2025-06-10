@@ -13,6 +13,7 @@ from .abc import (
   ListParameter,
   DictParameter,
   AnyOfParameter,
+  Function,
   ToolChoice,
   Tool
 )
