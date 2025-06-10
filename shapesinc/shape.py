@@ -92,9 +92,11 @@ class ShapeBase:
       
     if isinstance(message, str):
       message=Message.new(message)
-      
+    if messages:
+      messages = [m.to_dict() for m in messages]
     if message:
       messages.append(message.to_dict())
+      
     kw = {}
     if tools:
       kw["tools"]=tools
@@ -154,6 +156,12 @@ class Shape(ShapeBase):
     -----------
     message: Union[:class:`shapesinc.Message`, :class:`~str`]
       The message which is to be sent to the shape. Can be a :class:`shapesinc.Message` or a string.
+    messages: List[:class:`shapesinc.Message`]
+      Used for conversation history.
+    tools: Optional[ List[:class:`shapesinc.Tool`]]
+      List of tools to use (if any)
+    tool_choice: Optional[:class:`shapesinc.ToolChoice`]
+      Requirement of tool. Default 'auto'.
     user: Optional[:class:`shapesinc.ShapeUser`]
       The user who is sending the message.
     channel: Optional[:class:`shapesinc.ShapeChannel`]
@@ -166,6 +174,8 @@ class Shape(ShapeBase):
       
     Raises
     -------
+    :class:`~RuntimeError`
+      Raised when asynchronous function for tool is passed to synchronous shape.
     :class:`shapesinc.RateLimitError`
       Error when we get ratelimited
     :class:`shapesinc.APIError`
@@ -264,6 +274,12 @@ class AsyncShape(ShapeBase):
     -----------
     message: Union[:class:`shapesinc.Message`, :class:`~str`]
       The message which is to be sent to the shape. Can be a :class:`shapesinc.Message` or a string.
+    messages: List[:class:`shapesinc.Message`]
+      Used for conversation history.
+    tools: Optional[ List[:class:`shapesinc.Tool`]]
+      List of tools to use (if any)
+    tool_choice: Optional[:class:`shapesinc.ToolChoice`]
+      Requirement of tool. Default 'auto'.
     user: Optional[:class:`shapesinc.ShapeUser`]
       The user who is sending the message.
     channel: Optional[:class:`shapesinc.ShapeChannel`]
@@ -273,6 +289,7 @@ class AsyncShape(ShapeBase):
     --------
     :class:`shapesinc.PromptResponse`
       The response of the prompt.
+      
     Raises
     -------
     :class:`shapesinc.RateLimitError`
