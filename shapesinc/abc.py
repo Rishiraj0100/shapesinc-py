@@ -507,6 +507,17 @@ class DictParameter(Parameter):
   additionalProperties: dict = False
   required: typing.List[str]
   
+  def to_dict(self) -> dict:
+    o = super().to_dict()
+    res = {**o}
+    if "properties" in res:
+      res["properties"] = {}
+      for k, v in o["properties"].items():
+        if isinstance(v, Parameter):
+          v=v.to_dict()
+        res["properties"][k] = v
+        
+    return res
 
 class StrParameter(Parameter):
   """String parameter for tool function.
