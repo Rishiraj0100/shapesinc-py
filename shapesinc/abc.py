@@ -762,7 +762,7 @@ class Tool:
         description=func.__doc__ or '',
         parameters=DictParameter(
           required=list(params.keys()),
-          **params
+          properties=params
         )
       ),
       callback=func
