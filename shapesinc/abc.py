@@ -754,7 +754,7 @@ class Tool:
     params = {}
     for k, v in ann.items():
       assert v in valid_types, TypeError(f"Parameter types of the function must be one of {valid_types}, not {v}")
-      params[k]=valid_types_map[v]()
+      params[k]=valid_types_map[v]().to_dict()
       
     return cls(
       Function(
