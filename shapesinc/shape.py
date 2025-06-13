@@ -71,6 +71,8 @@ class ShapeBase:
     tool_choice: ToolChoice = ToolChoice.auto,
     user: User = None,
     channel: Channel = None,
+    extra_headers: dict = {},
+    extra_body: dict = {},
     remove_uid: bool = False
   ) -> typing.Union[PromptResponse, typing.Awaitable[PromptResponse]]:
     headers = {
@@ -85,6 +87,7 @@ class ShapeBase:
         headers["X-User-Auth"] = user.auth_token
         if remove_uid:
           del headers["X-User-Id"]
+        # Authorization header is not needed when X-User-Auth is given
         del headers["Authorization"]
         
     if channel is not None:
@@ -99,10 +102,13 @@ class ShapeBase:
       messages.append(message.to_dict())
       
     kw = {}
+    if extra_body:
+      kw["extra_body"] = extra_body
     if tools:
       kw["tools"]=tools
       kw["tool_choice"]=tool_choice
 
+    headers.update(extra_headers)
     return self.make_send_message_request(messages, headers, **kw)
 
   def make_send_message_request(
@@ -111,6 +117,7 @@ class ShapeBase:
     headers: typing.Dict[str, str],
     tools: typing.List[Tool] = [],
     tool_choice: str = "auto",
+    extra_body: dict = {}
   ) -> PromptResponse:
     """The method which is implemented to make requests to API
 
@@ -167,6 +174,10 @@ class Shape(ShapeBase):
       The user who is sending the message.
     channel: Optional[:class:`shapesinc.ShapeChannel`]
       The channel in which the message is being sent. Used for context.
+    extra_body: Optional[:class:`~dict`]
+      Extra data to send to API.
+    extra_headers: Optional[:class:`~dict`]
+      Extra headers to send to API.
       
     Returns
     --------
@@ -190,11 +201,13 @@ class Shape(ShapeBase):
     headers: typing.Dict[str, str],
     tools: typing.List[Tool] = [],
     tool_choice: str = "auto",
+    extra_body: dict = {}
   ) -> PromptResponse:
     kw = {}
     if tools:
       kw["tools"] = [t.to_dict() for t in tools]
       kw["tool_choice"] = tool_choice
+    kw.update(extra_body)
     resp = PromptResponse(shape=self, **(Route.API_BASE/"chat/completions").request(
       "POST",
       headers,
@@ -285,6 +298,10 @@ class AsyncShape(ShapeBase):
       The user who is sending the message.
     channel: Optional[:class:`shapesinc.ShapeChannel`]
       The channel in which the message is being sent. Used for context.
+    extra_body: Optional[:class:`~dict`]
+      Extra data to send to API.
+    extra_headers: Optional[:class:`~dict`]
+      Extra headers to send to API.
       
     Returns
     --------
@@ -306,12 +323,13 @@ class AsyncShape(ShapeBase):
     headers: typing.Dict[str, str],
     tools: typing.List[Tool] = [],
     tool_choice: str = "auto",
+    extra_body: dict = {}
   ) -> PromptResponse:
     kw = {}
     if tools:
       kw["tools"] = [t.to_dict() for t in tools]
       kw["tool_choice"] = tool_choice
-    
+    kw.update(extra_body)
     req = await (AsyncRoute.API_BASE/"chat/completions").request(
       "POST",
       headers,
